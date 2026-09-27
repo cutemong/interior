@@ -154,11 +154,58 @@ function plant(g, { h, color }) {
   g.add(leaves);
 }
 
-// 가구 하나의 3D 그룹 생성. item = { type, x, y, rot, w?, d?, h? }
+const HEX = /^#[0-9a-f]{6}$/i;
+const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+
+// AI가 만든 맞춤 가구 — 기본 도형(box/cylinder/sphere)을 조합
+// part = { shape, size: [x, y, z] (m), pos: [x, y, z] 중심 (y는 바닥 기준), rot: [rx, ry, rz] (°), color, roughness, metalness, opacity }
+function buildParts(g, parts) {
+  for (const p of parts.slice(0, 80)) {
+    const [sx, sy, sz] = (Array.isArray(p.size) ? p.size : [0.3, 0.3, 0.3]).map((v) => clamp(num(v, 0.3), 0.005, 6));
+    const [px, py, pz] = (Array.isArray(p.pos) ? p.pos : [0, sy / 2, 0]).map((v) => clamp(num(v, 0), -6, 6));
+    const [rx, ry, rz] = (Array.isArray(p.rot) ? p.rot : [0, 0, 0]).map((v) => THREE.MathUtils.degToRad(num(v, 0)));
+    let geo;
+    if (p.shape === 'cylinder') geo = new THREE.CylinderGeometry(0.5, 0.5, 1, 24);
+    else if (p.shape === 'sphere') geo = new THREE.SphereGeometry(0.5, 20, 14);
+    else geo = new THREE.BoxGeometry(1, 1, 1);
+    const opacity = clamp(num(p.opacity, 1), 0.1, 1);
+    const color = HEX.test(p.color) ? p.color : '#999999';
+    const m = new THREE.Mesh(geo, mat(new THREE.Color(color).getHex(), {
+      roughness: clamp(num(p.roughness, 0.7), 0, 1),
+      metalness: clamp(num(p.metalness, 0), 0, 1),
+      ...(opacity < 1 ? { transparent: true, opacity } : {}),
+    }));
+    m.scale.set(sx, sy, sz);
+    m.position.set(px, py, pz);
+    m.rotation.set(rx, ry, rz);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    g.add(m);
+  }
+}
+
+export function itemName(item) {
+  return item.name || catalog[item.type]?.name || item.type || '가구';
+}
+
+// 가구 하나의 3D 그룹 생성. item = { type, x, y, rot, w?, d?, h?, color?, name?, parts? }
 export function buildFurniture(item) {
-  const spec = catalog[item.type] ?? { name: item.type, w: 0.5, d: 0.5, h: 0.5, color: 0x999999 };
-  const dims = { w: item.w ?? spec.w, d: item.d ?? spec.d, h: item.h ?? spec.h, color: spec.color };
   const g = new THREE.Group();
+  if (Array.isArray(item.parts) && item.parts.length) {
+    const inner = new THREE.Group();
+    buildParts(inner, item.parts);
+    g.add(inner);
+    const size = new THREE.Box3().setFromObject(inner).getSize(new THREE.Vector3());
+    const natural = { w: size.x || 0.1, d: size.z || 0.1, h: size.y || 0.1 };
+    // W/D/H를 바꾸면 도형 전체를 비율대로 늘리고 줄임
+    inner.scale.set((item.w ?? natural.w) / natural.w, (item.h ?? natural.h) / natural.h, (item.d ?? natural.d) / natural.d);
+    g.userData.dims = { w: item.w ?? natural.w, d: item.d ?? natural.d, h: item.h ?? natural.h };
+    return g;
+  }
+  const spec = catalog[item.type] ?? { name: item.type, w: 0.5, d: 0.5, h: 0.5, color: 0x999999 };
+  const color = HEX.test(item.color ?? '') ? new THREE.Color(item.color).getHex() : spec.color;
+  const dims = { w: item.w ?? spec.w, d: item.d ?? spec.d, h: item.h ?? spec.h, color };
   (spec.build ?? plain)(g, dims);
   g.userData.dims = dims;
   return g;

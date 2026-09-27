@@ -14,9 +14,11 @@
   --muted: #69727b;
   --line: #d9dee2;
   --accent: #1f4e79;
+  --accent-ink: #ffffff;
   --accent-soft: #e3ecf5;
   --removed: #d8453e;
   --pantry: #c98a1c;
+  --ok: #2f7d4f;
   --scene-bg: #eef1f3;
   --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -25,47 +27,80 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --paper: #15191d; --panel: #1c2126; --ink: #e6e9ec; --muted: #9aa3ac; --line: #2e353c;
-    --accent: #7fb0e0; --accent-soft: #22303e; --scene-bg: #1a1f24;
+    --accent: #7fb0e0; --accent-ink: #10202f; --accent-soft: #22303e; --ok: #6cc08e; --scene-bg: #1a1f24;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --paper: #15191d; --panel: #1c2126; --ink: #e6e9ec; --muted: #9aa3ac; --line: #2e353c;
-  --accent: #7fb0e0; --accent-soft: #22303e; --scene-bg: #1a1f24;
+  --accent: #7fb0e0; --accent-ink: #10202f; --accent-soft: #22303e; --ok: #6cc08e; --scene-bg: #1a1f24;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--paper); color: var(--ink); font: 14px/1.5 var(--font); overflow: hidden; }
-.app { display: grid; grid-template-columns: 300px 1fr; height: 100%; }
-aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 18px; }
+.app { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
+aside > * { flex-shrink: 0; }
+aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 16px 16px 24px; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 header h1 { font-size: 17px; font-weight: 600; margin: 0; text-wrap: balance; }
 header p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
-section h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
-.seg { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.seg button { border: 0; border-right: 1px solid var(--line); background: transparent; }
-.seg button:last-child { border-right: 0; }
-.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
-button, select, input { font: inherit; color: inherit; }
+h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+button, select, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
-button:hover { border-color: var(--accent); }
-button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.toggles { display: grid; gap: 6px; }
-.toggles label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+select, input[type="number"], input[type="text"], textarea { border: 1px solid var(--line); border-radius: 6px; background: var(--paper); padding: 5px 7px; min-width: 0; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--line); border-radius: 0; background: transparent; padding: 6px 4px; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.toggles label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
 .toggles input { accent-color: var(--accent); }
 .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.panel { display: grid; gap: 12px; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.row > select { flex: 1; }
+.target { font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; background: var(--accent-soft); color: var(--ink); border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+.chip button { border: 0; background: none; padding: 0 2px; line-height: 1; color: var(--muted); }
+textarea { width: 100%; resize: vertical; min-height: 84px; line-height: 1.45; }
+.drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 8px; text-align: center; color: var(--muted); font-size: 12px; cursor: pointer; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.thumbs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.thumbs figure { position: relative; margin: 0; width: 64px; height: 64px; }
+.thumbs img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.thumbs button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; font-size: 12px; line-height: 1; }
+.examples { display: flex; flex-wrap: wrap; gap: 4px; }
+.examples button { font-size: 12px; padding: 2px 8px; border-radius: 999px; color: var(--muted); }
+.status { font-size: 13px; border-radius: 8px; padding: 10px 12px; background: var(--paper); border: 1px solid var(--line); white-space: pre-wrap; }
+.status.ok { border-color: var(--ok); }
+.status.err { border-color: var(--removed); }
+.status ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+.notice { font-size: 12px; color: var(--muted); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0; }
+.finish { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
+.finish-head { display: flex; align-items: center; gap: 10px; }
+.finish-head img { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--line); }
+.finish-head strong { font-size: 13px; display: block; }
+.finish-head span { font-size: 12px; color: var(--muted); }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.fields label { display: grid; gap: 2px; font-size: 11px; color: var(--muted); }
+.fields .wide { grid-column: 1 / -1; }
+input[type="color"] { width: 100%; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
 .rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
-.rooms li button { width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 10px; border: 0; border-radius: 4px; padding: 5px 6px; text-align: left; background: transparent; }
-.rooms li button:hover { background: var(--accent-soft); }
+.rooms li button { width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 10px; border: 0; border-radius: 4px; padding: 4px 6px; text-align: left; background: transparent; }
+.rooms li button:hover, .rooms li button[aria-current="true"] { background: var(--accent-soft); }
 .rooms .num { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .rooms .pantry { color: var(--pantry); font-weight: 600; }
 .total { display: flex; justify-content: space-between; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; font-family: var(--mono); font-size: 12px; }
-.row { display: flex; gap: 6px; flex-wrap: wrap; }
-.row select { flex: 1; min-width: 0; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 .inspector { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; }
 .inspector .name { font-weight: 600; }
 .dims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .dims label { display: grid; gap: 2px; font-size: 11px; color: var(--muted); }
-.dims input { width: 100%; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); font-family: var(--mono); font-size: 12px; }
+.dims input { width: 100%; font-family: var(--mono); font-size: 12px; }
 .danger { color: var(--removed); }
 .hint { color: var(--muted); font-size: 12px; margin: 0; }
 kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
@@ -75,11 +110,13 @@ main { position: relative; min-width: 0; background: var(--scene-bg); }
 .label { font: 500 12px/1.3 var(--font); color: #23282d; background: rgba(255,255,255,.86); border: 1px solid rgba(0,0,0,.08); padding: 2px 6px; border-radius: 4px; text-align: center; pointer-events: none; white-space: nowrap; }
 .label small { display: block; font: 400 10px/1.2 var(--mono); color: #5c656e; }
 .label.pantry { background: #fff4de; border-color: var(--pantry); color: #7a5208; }
+.label.active { background: #1f4e79; border-color: #1f4e79; color: #fff; }
+.label.active small { color: #d6e4f2; }
 .label.removed { background: #fde8e7; border-color: var(--removed); color: #9b2420; font-size: 11px; }
-.toast { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 6px 12px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 6px 12px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); }
 .toast.show { opacity: 1; }
 @media (max-width: 760px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: 55% 45%; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 50% 50%; }
   main { order: -1; }
   aside { border-right: 0; border-top: 1px solid var(--line); }
 }
@@ -98,12 +135,14 @@ main { position: relative; min-width: 0; background: var(--scene-bg); }
 <div class="app">
   <aside>
     <header>
-      <h1>우리집 인테리어 모델러</h1>
-      <p>도면 기반 3D 모델 · 단위 m · 가구를 끌어서 배치</p>
+      <div>
+        <h1>우리집 인테리어 모델러</h1>
+        <p>도면 기반 3D 모델 · 단위 m</p>
+      </div>
+      <button id="undo" disabled title="마지막 변경 되돌리기">↶ 되돌리기</button>
     </header>
 
     <section>
-      <h2>보기</h2>
       <div class="seg" role="group" aria-label="시점">
         <button id="view-3d" aria-pressed="true">3D</button>
         <button id="view-top" aria-pressed="false">평면도</button>
@@ -111,36 +150,67 @@ main { position: relative; min-width: 0; background: var(--scene-bg); }
       </div>
     </section>
 
-    <section class="toggles">
-      <h2>표시</h2>
+    <section class="toggles" aria-label="표시">
       <label><input type="checkbox" id="opt-furniture" checked> 가구</label>
-      <label><input type="checkbox" id="opt-labels" checked> 공간 이름·면적</label>
-      <label><input type="checkbox" id="opt-lowwalls"> 벽 낮춰 보기 (단면)</label>
-      <label><input type="checkbox" id="opt-removed"> <span class="swatch" style="background:var(--removed)"></span> 철거된 벽 위치 표시</label>
+      <label><input type="checkbox" id="opt-labels" checked> 공간 이름</label>
+      <label><input type="checkbox" id="opt-lowwalls"> 벽 낮춰 보기</label>
+      <label><input type="checkbox" id="opt-removed"> <span class="swatch" style="background:var(--removed)"></span> 철거 벽</label>
     </section>
 
-    <section>
-      <h2>공간</h2>
-      <ul class="rooms" id="room-list"></ul>
-    </section>
+    <div class="seg" role="tablist" aria-label="편집 메뉴">
+      <button role="tab" id="tab-ai" aria-selected="true" aria-controls="panel-ai">AI 요청</button>
+      <button role="tab" id="tab-finish" aria-selected="false" aria-controls="panel-finish">마감재</button>
+      <button role="tab" id="tab-furn" aria-selected="false" aria-controls="panel-furn">가구</button>
+      <button role="tab" id="tab-rooms" aria-selected="false" aria-controls="panel-rooms">공간</button>
+    </div>
 
-    <section>
-      <h2>가구 추가</h2>
+    <!-- AI 요청 -->
+    <section class="panel" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai">
+      <div class="target" id="ai-target"></div>
+      <textarea id="ai-text" placeholder="예) 거실 바닥을 사진처럼 밝은 헤링본으로 바꿔줘&#10;예) 사진 속 소파를 거실 소파 자리에 넣어줘"></textarea>
+      <div class="drop" id="ai-drop" tabindex="0" role="button" aria-label="참고 이미지 추가">
+        <span id="ai-drop-text">참고 이미지를 끌어다 놓거나 눌러서 선택 (여러 장 가능)</span>
+        <div class="thumbs" id="ai-thumbs"></div>
+      </div>
+      <input type="file" id="ai-file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+      <div class="examples" id="ai-examples">
+        <button data-ex="거실·식당·주방 바닥을 사진 같은 마루로 바꿔줘">바닥 → 사진 마루</button>
+        <button data-ex="안방 벽지를 사진처럼 바꿔줘">안방 벽지</button>
+        <button data-ex="사진 속 가구를 선택한 가구 대신 넣어줘. 모양과 색을 최대한 비슷하게">선택 가구 교체</button>
+        <button data-ex="펜트리에 사진 같은 수납장을 추가해줘">펜트리 수납장 추가</button>
+      </div>
       <div class="row">
-        <select id="add-type" aria-label="가구 종류"></select>
-        <button id="add-btn">추가</button>
+        <button class="primary" id="ai-run">요청 적용</button>
+        <button id="ai-stop" hidden>중지</button>
+      </div>
+      <div class="status" id="ai-status" hidden></div>
+      <p class="notice" id="ai-unavailable" hidden>AI 요청은 claude.ai에서 이 페이지를 열었을 때 동작합니다. 여기서는 Claude Code 대화창에 참고 이미지와 요청을 보내 주시면 같은 방식으로 적용해 드립니다. 마감재·가구 탭에서 직접 바꿀 수도 있습니다.</p>
+    </section>
+
+    <!-- 마감재 -->
+    <section class="panel" id="panel-finish" role="tabpanel" aria-labelledby="tab-finish" hidden>
+      <div class="row">
+        <select id="fin-room" aria-label="공간 선택"></select>
+      </div>
+      <p class="hint">3D 화면에서 바닥을 눌러도 공간이 선택됩니다.</p>
+      <div class="finish" id="fin-floor"></div>
+      <div class="finish" id="fin-wall"></div>
+      <div class="row">
+        <button id="fin-copy-floor">같은 종류 바닥에 모두 적용</button>
+        <button id="fin-copy-wall">모든 공간 벽에 적용</button>
       </div>
     </section>
 
-    <section id="inspector-wrap">
-      <h2>선택한 가구</h2>
+    <!-- 가구 -->
+    <section class="panel" id="panel-furn" role="tabpanel" aria-labelledby="tab-furn" hidden>
       <div class="inspector" id="inspector" hidden>
-        <div class="name" id="sel-name"></div>
+        <input type="text" id="sel-name" aria-label="가구 이름">
         <div class="dims">
           <label>폭 W<input id="sel-w" type="number" step="0.05" min="0.05"></label>
           <label>깊이 D<input id="sel-d" type="number" step="0.05" min="0.05"></label>
           <label>높이 H<input id="sel-h" type="number" step="0.05" min="0.01"></label>
         </div>
+        <label class="row" id="sel-color-row">색상 <input type="color" id="sel-color" style="flex:1"></label>
         <div class="row">
           <button id="rot-l">↺ 90°</button>
           <button id="rot-r">↻ 90°</button>
@@ -148,18 +218,30 @@ main { position: relative; min-width: 0; background: var(--scene-bg); }
           <button id="del" class="danger">삭제</button>
         </div>
       </div>
-      <p class="hint" id="inspector-empty">가구를 클릭해 선택하고 끌어서 옮기세요. <kbd>R</kbd> 15° 회전 · <kbd>Del</kbd> 삭제</p>
+      <p class="hint" id="inspector-empty">가구를 클릭해 선택하고 끌어서 옮기세요. <kbd>R</kbd> 15° 회전 · <kbd>Del</kbd> 삭제. 모양이 다른 가구는 AI 요청 탭에 사진과 함께 요청하세요.</p>
+      <div>
+        <h2>기본 가구 바로 추가</h2>
+        <div class="row">
+          <select id="add-type" aria-label="가구 종류"></select>
+          <button id="add-btn">추가</button>
+        </div>
+      </div>
+      <div>
+        <h2>저장</h2>
+        <div class="row">
+          <button id="export">JSON 복사</button>
+          <button id="import">JSON 불러오기</button>
+          <input type="file" id="import-file" accept=".json,application/json" hidden>
+          <button id="reset">초기화</button>
+        </div>
+        <p class="hint" id="reset-confirm" hidden>한 번 더 누르면 바닥재·벽지·가구가 모두 처음 상태로 돌아갑니다.</p>
+        <p class="hint" id="sync-state"></p>
+      </div>
     </section>
 
-    <section>
-      <h2>배치 저장</h2>
-      <div class="row">
-        <button id="export">JSON 복사</button>
-        <button id="import">JSON 불러오기</button>
-        <input type="file" id="import-file" accept=".json,application/json" hidden>
-        <button id="reset">초기화</button>
-      </div>
-      <p class="hint" id="reset-confirm" hidden>한 번 더 누르면 가구 배치가 도면 초기값으로 돌아갑니다.</p>
+    <!-- 공간 -->
+    <section class="panel" id="panel-rooms" role="tabpanel" aria-labelledby="tab-rooms" hidden>
+      <ul class="rooms" id="room-list"></ul>
     </section>
   </aside>
   <main>
