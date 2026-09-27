@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우리집 인테리어 모델러</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --paper: #f6f7f5;
+  --panel: #ffffff;
+  --ink: #23282d;
+  --muted: #69727b;
+  --line: #d9dee2;
+  --accent: #1f4e79;
+  --accent-soft: #e3ecf5;
+  --removed: #d8453e;
+  --pantry: #c98a1c;
+  --scene-bg: #eef1f3;
+  --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #15191d; --panel: #1c2126; --ink: #e6e9ec; --muted: #9aa3ac; --line: #2e353c;
+    --accent: #7fb0e0; --accent-soft: #22303e; --scene-bg: #1a1f24;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #15191d; --panel: #1c2126; --ink: #e6e9ec; --muted: #9aa3ac; --line: #2e353c;
+  --accent: #7fb0e0; --accent-soft: #22303e; --scene-bg: #1a1f24;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 14px/1.5 var(--font); overflow: hidden; }
+.app { display: grid; grid-template-columns: 300px 1fr; height: 100%; }
+aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 18px; }
+header h1 { font-size: 17px; font-weight: 600; margin: 0; text-wrap: balance; }
+header p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+section h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--line); background: transparent; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.toggles { display: grid; gap: 6px; }
+.toggles label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.toggles input { accent-color: var(--accent); }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.rooms li button { width: 100%; display: grid; grid-template-columns: 1fr auto auto; gap: 10px; border: 0; border-radius: 4px; padding: 5px 6px; text-align: left; background: transparent; }
+.rooms li button:hover { background: var(--accent-soft); }
+.rooms .num { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.rooms .pantry { color: var(--pantry); font-weight: 600; }
+.total { display: flex; justify-content: space-between; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; font-family: var(--mono); font-size: 12px; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; }
+.row select { flex: 1; min-width: 0; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.inspector { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; }
+.inspector .name { font-weight: 600; }
+.dims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.dims label { display: grid; gap: 2px; font-size: 11px; color: var(--muted); }
+.dims input { width: 100%; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); font-family: var(--mono); font-size: 12px; }
+.danger { color: var(--removed); }
+.hint { color: var(--muted); font-size: 12px; margin: 0; }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+main { position: relative; min-width: 0; background: var(--scene-bg); }
+#viewport { position: absolute; inset: 0; }
+#viewport canvas { display: block; touch-action: none; }
+.label { font: 500 12px/1.3 var(--font); color: #23282d; background: rgba(255,255,255,.86); border: 1px solid rgba(0,0,0,.08); padding: 2px 6px; border-radius: 4px; text-align: center; pointer-events: none; white-space: nowrap; }
+.label small { display: block; font: 400 10px/1.2 var(--mono); color: #5c656e; }
+.label.pantry { background: #fff4de; border-color: var(--pantry); color: #7a5208; }
+.label.removed { background: #fde8e7; border-color: var(--removed); color: #9b2420; font-size: 11px; }
+.toast { position: absolute; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 6px 12px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 55% 45%; }
+  main { order: -1; }
+  aside { border-right: 0; border-top: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <header>
+      <h1>우리집 인테리어 모델러</h1>
+      <p>도면 기반 3D 모델 · 단위 m · 가구를 끌어서 배치</p>
+    </header>
+
+    <section>
+      <h2>보기</h2>
+      <div class="seg" role="group" aria-label="시점">
+        <button id="view-3d" aria-pressed="true">3D</button>
+        <button id="view-top" aria-pressed="false">평면도</button>
+        <button id="view-walk" aria-pressed="false">눈높이</button>
+      </div>
+    </section>
+
+    <section class="toggles">
+      <h2>표시</h2>
+      <label><input type="checkbox" id="opt-furniture" checked> 가구</label>
+      <label><input type="checkbox" id="opt-labels" checked> 공간 이름·면적</label>
+      <label><input type="checkbox" id="opt-lowwalls"> 벽 낮춰 보기 (단면)</label>
+      <label><input type="checkbox" id="opt-removed"> <span class="swatch" style="background:var(--removed)"></span> 철거된 벽 위치 표시</label>
+    </section>
+
+    <section>
+      <h2>공간</h2>
+      <ul class="rooms" id="room-list"></ul>
+    </section>
+
+    <section>
+      <h2>가구 추가</h2>
+      <div class="row">
+        <select id="add-type" aria-label="가구 종류"></select>
+        <button id="add-btn">추가</button>
+      </div>
+    </section>
+
+    <section id="inspector-wrap">
+      <h2>선택한 가구</h2>
+      <div class="inspector" id="inspector" hidden>
+        <div class="name" id="sel-name"></div>
+        <div class="dims">
+          <label>폭 W<input id="sel-w" type="number" step="0.05" min="0.05"></label>
+          <label>깊이 D<input id="sel-d" type="number" step="0.05" min="0.05"></label>
+          <label>높이 H<input id="sel-h" type="number" step="0.05" min="0.01"></label>
+        </div>
+        <div class="row">
+          <button id="rot-l">↺ 90°</button>
+          <button id="rot-r">↻ 90°</button>
+          <button id="dup">복제</button>
+          <button id="del" class="danger">삭제</button>
+        </div>
+      </div>
+      <p class="hint" id="inspector-empty">가구를 클릭해 선택하고 끌어서 옮기세요. <kbd>R</kbd> 15° 회전 · <kbd>Del</kbd> 삭제</p>
+    </section>
+
+    <section>
+      <h2>배치 저장</h2>
+      <div class="row">
+        <button id="export">JSON 복사</button>
+        <button id="import">JSON 불러오기</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden>
+        <button id="reset">초기화</button>
+      </div>
+      <p class="hint" id="reset-confirm" hidden>한 번 더 누르면 가구 배치가 도면 초기값으로 돌아갑니다.</p>
+    </section>
+  </aside>
+  <main>
+    <div id="viewport"></div>
+    <div class="toast" id="toast" role="status"></div>
+  </main>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
