@@ -71,9 +71,16 @@ textarea { width: 100%; resize: vertical; min-height: 84px; line-height: 1.45; }
 .drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 8px; text-align: center; color: var(--muted); font-size: 12px; cursor: pointer; }
 .drop.over { border-color: var(--accent); background: var(--accent-soft); }
 .thumbs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.thumbs figure { position: relative; margin: 0; width: 64px; height: 64px; }
-.thumbs img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
-.thumbs button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; font-size: 12px; line-height: 1; }
+.thumbs figure { position: relative; margin: 0; width: 72px; display: grid; gap: 4px; }
+.thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); cursor: crosshair; }
+.thumbs .x { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; font-size: 12px; line-height: 1; }
+.pal { display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; }
+.pal span { width: 11px; height: 11px; border-radius: 2px; border: 1px solid rgba(0,0,0,.15); }
+.pal span.picked { outline: 2px solid var(--accent); outline-offset: 1px; }
+.preview { border: 1px solid var(--line); border-radius: 8px; padding: 8px; display: grid; gap: 6px; }
+.preview-head button { white-space: nowrap; }
+.preview-head { justify-content: space-between; font-size: 12px; color: var(--muted); flex-wrap: nowrap; }
+.preview canvas { width: 100%; height: auto; border-radius: 4px; cursor: crosshair; display: block; }
 .examples { display: flex; flex-wrap: wrap; gap: 4px; }
 .examples button { font-size: 12px; padding: 2px 8px; border-radius: 999px; color: var(--muted); }
 .status { font-size: 13px; border-radius: 8px; padding: 10px 12px; background: var(--paper); border: 1px solid var(--line); white-space: pre-wrap; }
@@ -172,7 +179,12 @@ main { position: relative; min-width: 0; background: var(--scene-bg); }
         <span id="ai-drop-text">참고 이미지를 끌어다 놓거나 눌러서 선택 (여러 장 가능)</span>
         <div class="thumbs" id="ai-thumbs"></div>
       </div>
-      <input type="file" id="ai-file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+      <input type="file" id="ai-file" accept="image/*" multiple hidden>
+      <p class="hint" id="ai-mode"></p>
+      <div class="preview" id="ai-preview" hidden>
+        <div class="row preview-head"><span id="ai-preview-title"></span><button id="ai-preview-close" aria-label="크게 보기 닫기">닫기</button></div>
+        <canvas id="ai-preview-canvas"></canvas>
+      </div>
       <div class="examples" id="ai-examples">
         <button data-ex="거실·식당·주방 바닥을 사진 같은 마루로 바꿔줘">바닥 → 사진 마루</button>
         <button data-ex="안방 벽지를 사진처럼 바꿔줘">안방 벽지</button>
@@ -181,6 +193,7 @@ main { position: relative; min-width: 0; background: var(--scene-bg); }
       </div>
       <div class="row">
         <button class="primary" id="ai-run">요청 적용</button>
+        <button id="ai-attach">이미지 첨부</button>
         <button id="ai-stop" hidden>중지</button>
       </div>
       <div class="status" id="ai-status" hidden></div>

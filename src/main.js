@@ -508,7 +508,7 @@ for (const t of TABS) $('tab-' + t).onclick = () => showTab(t);
 
 // ─────────────────────────── AI 요청 ───────────────────────────
 let sample = null;
-let aiImages = []; // { file, url }
+let aiImages = []; // { blob: JPEG, url, palette: [{hex, pct}], picked: [hex] }
 let aiCtl = null;
 let aiBlocked = false;
 
@@ -532,6 +532,90 @@ function renderTarget() {
   else el.prepend('대상 ');
 }
 
+// ── 참고 이미지 ──
+// 이미지를 Claude가 직접 볼 수 있는 화면이면 원본(JPEG로 정리)을 보내고,
+// 못 보는 화면이면 페이지에서 뽑은 색 정보를 글로 함께 보낸다. 어느 쪽이든 색 분석은 항상 곁들인다.
+let imageMode = 'colors'; // 'direct' | 'colors'
+let imageLimits = null;
+let previewIndex = null;
+
+async function decodeImage(file) {
+  try {
+    return await createImageBitmap(file);
+  } catch {
+    // 일부 브라우저(HEIC 등)는 <img>로만 열림
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      return img;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+
+// 긴 변 1600px JPEG로 정리 (HEIC·대용량 사진도 보낼 수 있게)
+function toJpeg(src) {
+  const w = src.width, h = src.height;
+  const k = Math.min(1, 1600 / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * k);
+  c.height = Math.round(h * k);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.88));
+}
+
+// 주요 색 추출 (작게 줄인 뒤 k-means)
+function extractPalette(src, k = 6) {
+  const N = 72;
+  const c = document.createElement('canvas');
+  const r = Math.min(1, N / Math.max(src.width, src.height));
+  c.width = Math.max(1, Math.round(src.width * r));
+  c.height = Math.max(1, Math.round(src.height * r));
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(src, 0, 0, c.width, c.height);
+  const d = ctx.getImageData(0, 0, c.width, c.height).data;
+  const px = [];
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) px.push([d[i], d[i + 1], d[i + 2]]);
+  if (!px.length) return [];
+  let cents = Array.from({ length: k }, (_, j) => px[Math.floor(((j + 0.5) / k) * px.length)].slice());
+  let assign = new Array(px.length).fill(0);
+  for (let it = 0; it < 10; it++) {
+    const sums = cents.map(() => [0, 0, 0, 0]);
+    px.forEach((p, i) => {
+      let best = 0, bd = Infinity;
+      cents.forEach((q, j) => {
+        const dd = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
+        if (dd < bd) { bd = dd; best = j; }
+      });
+      assign[i] = best;
+      const s = sums[best];
+      s[0] += p[0]; s[1] += p[1]; s[2] += p[2]; s[3]++;
+    });
+    cents = sums.map((s, j) => (s[3] ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : cents[j]));
+  }
+  const counts = cents.map(() => 0);
+  assign.forEach((a) => counts[a]++);
+  const hex = (q) => '#' + q.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+  const out = [];
+  cents.map((q, j) => ({ q, n: counts[j] })).sort((a, b) => b.n - a.n).forEach(({ q, n }) => {
+    if (!n) return;
+    const near = out.find((o) => Math.hypot(o.q[0] - q[0], o.q[1] - q[1], o.q[2] - q[2]) < 22);
+    if (near) near.n += n; else out.push({ q, n });
+  });
+  return out.map(({ q, n }) => ({ hex: hex(q), pct: Math.round((n / px.length) * 100) })).filter((o) => o.pct >= 3);
+}
+
+function imageNotes() {
+  return aiImages.map((im, i) => {
+    const pal = im.palette.map((p) => `${p.hex} ${p.pct}%`).join(', ');
+    const picked = im.picked.length ? ` / 사용자가 사진에서 직접 찍은 색: ${im.picked.join(', ')} (가장 중요하게 반영)` : '';
+    return `이미지 ${i + 1}: 주요 색(면적순) ${pal || '분석 실패'}${picked}`;
+  });
+}
+
 function renderThumbs() {
   const box = $('ai-thumbs');
   box.textContent = '';
@@ -539,41 +623,104 @@ function renderThumbs() {
     const f = document.createElement('figure');
     const img = document.createElement('img');
     img.src = im.url;
-    img.alt = `참고 이미지 ${i + 1}`;
+    img.alt = `참고 이미지 ${i + 1} · 눌러서 색 찍기`;
+    img.title = '눌러서 크게 보고 원하는 색 찍기';
+    img.onclick = (ev) => { ev.stopPropagation(); openPreview(i); };
     const b = document.createElement('button');
+    b.className = 'x';
     b.textContent = '×';
     b.setAttribute('aria-label', `참고 이미지 ${i + 1} 빼기`);
     b.onclick = (ev) => {
       ev.stopPropagation();
       URL.revokeObjectURL(im.url);
       aiImages.splice(i, 1);
+      if (previewIndex === i) closePreview();
+      else if (previewIndex > i) previewIndex--;
       renderThumbs();
     };
-    f.append(img, b);
+    const pal = document.createElement('div');
+    pal.className = 'pal';
+    for (const p of [...im.picked.map((hex) => ({ hex, picked: true })), ...im.palette.slice(0, 5)]) {
+      const sp = document.createElement('span');
+      sp.style.background = p.hex;
+      if (p.picked) sp.className = 'picked';
+      sp.title = p.picked ? `찍은 색 ${p.hex}` : `${p.hex} · ${p.pct}%`;
+      pal.appendChild(sp);
+    }
+    f.append(img, b, pal);
     box.appendChild(f);
   });
-  $('ai-drop-text').textContent = aiImages.length ? `참고 이미지 ${aiImages.length}장 · 눌러서 더 추가` : '참고 이미지를 끌어다 놓거나 눌러서 선택 (여러 장 가능)';
+  $('ai-drop-text').textContent = aiImages.length
+    ? `참고 이미지 ${aiImages.length}장 · 더 추가하려면 여기를 누르세요 · 사진을 누르면 색을 직접 찍을 수 있습니다`
+    : '참고 이미지를 끌어다 놓거나 눌러서 선택 (여러 장 가능)';
+  $('ai-mode').textContent = !aiImages.length ? ''
+    : imageMode === 'direct' ? 'Claude가 사진을 직접 보고 판단합니다.'
+      : '이 화면에서는 사진을 Claude에게 직접 보낼 수 없어, 사진에서 뽑은 색(아래 점)과 직접 찍은 색을 함께 보냅니다. 무늬(헤링본·대리석 등)는 요청 글에 적어 주세요.';
 }
 
-let imageLimits = null;
-function addImages(files) {
+async function addImages(files) {
   const max = imageLimits?.maxCount ?? 4;
-  for (const file of files) {
-    if (!file.type.startsWith('image/')) continue;
+  for (const file of [...files]) {
+    if (!file.type.startsWith('image/') && !/\.(heic|heif|jpe?g|png|webp|gif)$/i.test(file.name)) continue;
     if (aiImages.length >= max) { toast(`참고 이미지는 한 번에 ${max}장까지 보낼 수 있습니다`); break; }
-    aiImages.push({ file, url: URL.createObjectURL(file) });
+    try {
+      const bmp = await decodeImage(file);
+      const blob = await toJpeg(bmp);
+      aiImages.push({ blob, url: URL.createObjectURL(blob), palette: extractPalette(bmp), picked: [] });
+    } catch {
+      toast(`${file.name}을(를) 열 수 없습니다. JPG나 PNG로 저장해서 다시 올려 주세요`);
+    }
   }
   renderThumbs();
 }
 
+// 크게 보기 + 스포이트: 사진에서 바닥/벽/가구 색을 정확히 찍음
+async function openPreview(i) {
+  previewIndex = i;
+  const im = aiImages[i];
+  const bmp = await decodeImage(im.blob);
+  const cv = $('ai-preview-canvas');
+  const k = Math.min(1, 900 / Math.max(bmp.width, bmp.height));
+  cv.width = Math.round(bmp.width * k);
+  cv.height = Math.round(bmp.height * k);
+  cv.getContext('2d', { willReadFrequently: true }).drawImage(bmp, 0, 0, cv.width, cv.height);
+  $('ai-preview').hidden = false;
+  $('ai-preview-title').textContent = `참고 이미지 ${i + 1} · 반영하고 싶은 부분을 누르면 그 색을 찍습니다`;
+}
+function closePreview() {
+  previewIndex = null;
+  $('ai-preview').hidden = true;
+}
+$('ai-preview-close').onclick = closePreview;
+$('ai-preview-canvas').onclick = (e) => {
+  if (previewIndex == null) return;
+  const cv = e.currentTarget;
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor(((e.clientX - r.left) / r.width) * cv.width);
+  const y = Math.floor(((e.clientY - r.top) / r.height) * cv.height);
+  // 5×5 평균으로 노이즈 줄이기
+  const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(Math.max(0, x - 2), Math.max(0, y - 2), 5, 5).data;
+  let rr = 0, gg = 0, bb = 0, n = 0;
+  for (let j = 0; j < d.length; j += 4) { rr += d[j]; gg += d[j + 1]; bb += d[j + 2]; n++; }
+  const hex = '#' + [rr, gg, bb].map((v) => Math.round(v / n).toString(16).padStart(2, '0')).join('');
+  const im = aiImages[previewIndex];
+  if (!im.picked.includes(hex)) im.picked.push(hex);
+  if (im.picked.length > 6) im.picked.shift();
+  renderThumbs();
+  toast(`색 ${hex}을(를) 찍었습니다 · 요청에 "찍은 색"이라고 적으면 그 색을 씁니다`);
+};
+
 const drop = $('ai-drop');
 drop.onclick = () => $('ai-file').click();
 drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('ai-file').click(); } };
+$('ai-attach').onclick = () => $('ai-file').click();
 $('ai-file').onchange = (e) => { addImages(e.target.files); e.target.value = ''; };
 drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
 drop.ondragleave = () => drop.classList.remove('over');
 drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); addImages(e.dataTransfer.files); };
-$('ai-text').addEventListener('paste', (e) => {
+// 요청창에 사진 붙여넣기(Ctrl+V)
+document.addEventListener('paste', (e) => {
+  if (currentTab !== 'ai') return;
   const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
   if (files.length) { e.preventDefault(); addImages(files); }
 });
@@ -595,34 +742,37 @@ async function initSample() {
     return;
   }
   imageLimits = (await sample.limits().catch(() => null))?.images ?? null;
-  if (!imageLimits) {
-    drop.hidden = true;
-  } else {
-    $('ai-file').accept = imageLimits.mediaTypes.join(',');
-  }
+  imageMode = imageLimits ? 'direct' : 'colors';
+  renderThumbs();
 }
 
 $('ai-stop').onclick = () => aiCtl?.abort();
-$('ai-run').onclick = async () => {
+$('ai-run').onclick = () => runAi();
+
+async function runAi() {
   const request = $('ai-text').value.trim();
   if (!request) { setStatus('무엇을 바꿀지 적어 주세요. 예) 거실 바닥을 사진 같은 헤링본으로', 'err'); $('ai-text').focus(); return; }
   if (!sample) return;
   aiCtl = new AbortController();
   $('ai-run').disabled = true;
   $('ai-stop').hidden = false;
-  setStatus(aiImages.length ? '참고 이미지를 보고 변경안을 만드는 중… (보통 20~60초)' : '변경안을 만드는 중…');
+  const sendImages = imageMode === 'direct' && aiImages.length > 0;
+  setStatus(sendImages ? '참고 이미지를 보고 변경안을 만드는 중… (보통 20~60초)' : '변경안을 만드는 중…');
   const prompt = buildPrompt({
     request,
     imageCount: aiImages.length,
+    imagesVisible: sendImages,
+    imageNotes: imageNotes(),
     rooms,
     state,
     selectedRoom: selectedRoom ? `${selectedRoom} (${roomById[selectedRoom].name})` : null,
     selectedItem: selected,
   });
+  let retryWithColors = false;
   try {
     const reply = await sample.json(prompt, {
       signal: aiCtl.signal,
-      images: aiImages.length ? aiImages.map((i) => i.file) : undefined,
+      images: sendImages ? aiImages.map((i) => i.blob) : undefined,
       onText: () => setStatus('변경안을 받는 중…'),
     });
     const { summary, actions, skipped } = sanitizeActions(reply, rooms, state.furniture.length);
@@ -646,16 +796,22 @@ $('ai-run').onclick = async () => {
     el.appendChild(ul);
     toast('적용했습니다 · 마음에 안 들면 되돌리기');
   } catch (e) {
+    if (e?.code === 'images_unavailable' && sendImages) {
+      // 이 화면은 이미지를 못 보냄 → 색 분석 모드로 바꿔 같은 요청을 한 번만 다시 보냄
+      imageMode = 'colors';
+      renderThumbs();
+      retryWithColors = true;
+      return;
+    }
     if (e?.code === 'cancelled') setStatus('요청을 중지했습니다.');
     else setStatus(ERROR_COPY[e?.code] ?? ERROR_COPY.upstream_error, 'err');
     if (e?.code === 'not_granted' || e?.code === 'sampling_disabled') aiBlocked = true;
-    if (e?.code === 'images_unavailable') drop.hidden = true;
-    return;
   } finally {
     $('ai-run').disabled = aiBlocked || !sample;
     $('ai-stop').hidden = true;
+    if (retryWithColors) runAi();
   }
-};
+}
 
 // 검증된 액션을 한 번의 commit으로 적용 (되돌리기 한 번에 전부 취소)
 function applyActions(actions) {

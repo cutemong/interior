@@ -3,7 +3,7 @@ import { catalog, itemName } from './furniture.js';
 
 // Claude에게 보내는 요청문. 참고 이미지 + 사용자 요청 + 현재 집 상태를 넣고,
 // 적용할 변경을 JSON 액션 목록으로 받는다.
-export function buildPrompt({ request, imageCount, rooms, state, selectedRoom, selectedItem }) {
+export function buildPrompt({ request, imageCount, imagesVisible, imageNotes = [], rooms, state, selectedRoom, selectedItem }) {
   const roomLines = rooms.map((r) => {
     const xs = r.poly.map((p) => p[0]), ys = r.poly.map((p) => p[1]);
     const s = state.surfaces[r.id] ?? {};
@@ -15,7 +15,7 @@ export function buildPrompt({ request, imageCount, rooms, state, selectedRoom, s
   });
   const catLines = Object.entries(catalog).map(([k, v]) => `${k}(${v.name} ${v.w}×${v.d}×${v.h})`).join(', ');
 
-  return `당신은 아파트 3D 인테리어 모델링 프로그램의 편집 도우미입니다. 사용자의 요청${imageCount ? `과 첨부된 참고 이미지 ${imageCount}장` : ''}을 보고, 모델에 적용할 변경을 JSON으로만 답하세요.
+  return `당신은 아파트 3D 인테리어 모델링 프로그램의 편집 도우미입니다. 사용자의 요청${imageCount ? (imagesVisible ? `과 첨부된 참고 이미지 ${imageCount}장` : `과 참고 이미지 ${imageCount}장의 색 분석`) : ''}을 보고, 모델에 적용할 변경을 JSON으로만 답하세요.
 
 ## 좌표계
 - 단위 m. 도면 좌표 x = 동쪽(오른쪽), y = 남쪽(아래). 벽 높이 2.4m.
@@ -61,7 +61,11 @@ updateFurniture의 patch에는 위 가구 필드 중 바꿀 것만 넣습니다 
 ## 답 형식 (이 JSON 하나만)
 {"summary":"무엇을 바꿨는지 한국어 한두 문장","actions":[...]}
 
-## 사용자 요청
+${imageNotes.length ? `## 참고 이미지 색 분석 (페이지가 사진에서 추출)
+${imagesVisible ? '이미지를 직접 보고 판단하되, 색을 고를 때 아래 값을 참고하세요.' : '이미지는 볼 수 없고 아래 색 정보만 있습니다. 요청 글과 이 색으로 마감재·가구 색을 정하세요. 사진의 가장 넓은 색이 보통 바닥·벽 같은 큰 면입니다.'}
+${imageNotes.join('\n')}
+
+` : ''}## 사용자 요청
 ${request}`;
 }
 
